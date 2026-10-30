@@ -27,3 +27,7 @@ Tom said the button after Push to Estimator does not take him to the project. Th
 ## 2026-10-30 — Back and Forward on the ribbon
 
 Tom said there is no way back once a PDF, or any other page, replaces the one he was on. The ribbon now has Back and Forward, to the right of the window buttons. They follow the page history, so Back from a PDF returns to the previous ScopeFlow page. A trackpad swipe and the side mouse buttons do the same. Go → Back is still Command-[. `npm test` 26 passed, and a ribbon check confirmed Back enables and sends the navigation. The arm64 app was updated and reopened. The public 0.1.1 zip was not rebuilt.
+
+## 2026-10-30 — Public download 0.1.2
+
+Tom asked for the public Mac download to include Back and Forward. Version 0.1.2 is one universal app, `x86_64 arm64`. Both halves smoke-launched to `https://app.scopeflow.us/login`. The app is ad-hoc signed (`us.scopeflow.desktop`). The zip is 213 MB: https://github.com/tomswainson1-dot/scopeflow-mac/releases/download/v0.1.2/ScopeFlow-mac.zip. Release v0.1.2 is not a draft and the file is `ScopeFlow-mac.zip`. There is still no Developer ID certificate on this Mac.
