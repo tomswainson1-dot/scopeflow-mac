@@ -303,11 +303,6 @@ if (!gotLock) {
       callback(allowed.has(permission));
     });
 
-    const icon = path.join(__dirname, "..", "assets", "icon.png");
-    if (process.platform === "darwin" && app.dock && fs.existsSync(icon)) {
-      app.dock.setIcon(icon);
-    }
-
     installMenu();
     app.on("web-contents-created", (_event, contents) => {
       if (buildingChrome || contents.__scopeflowPage) return;

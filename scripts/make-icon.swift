@@ -3,26 +3,6 @@ import AppKit
 let size = 1024
 let out = URL(fileURLWithPath: CommandLine.arguments[1])
 
-func squircle(in rect: CGRect, n: CGFloat) -> NSBezierPath {
-    let path = NSBezierPath()
-    let a = rect.width / 2
-    let b = rect.height / 2
-    let cx = rect.midX
-    let cy = rect.midY
-    let steps = 720
-    for i in 0...steps {
-        let t = CGFloat(i) / CGFloat(steps) * 2 * .pi
-        let ct = cos(t)
-        let st = sin(t)
-        let x = cx + a * (ct < 0 ? -1 : 1) * pow(abs(ct), 2 / n)
-        let y = cy + b * (st < 0 ? -1 : 1) * pow(abs(st), 2 / n)
-        if i == 0 { path.move(to: NSPoint(x: x, y: y)) }
-        else { path.line(to: NSPoint(x: x, y: y)) }
-    }
-    path.close()
-    return path
-}
-
 let rep = NSBitmapImageRep(
     bitmapDataPlanes: nil,
     pixelsWide: size,
@@ -41,18 +21,25 @@ NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
 NSColor.clear.setFill()
 NSRect(x: 0, y: 0, width: size, height: size).fill()
 
-let shape = squircle(in: CGRect(x: 36, y: 36, width: 952, height: 952), n: 5)
+// Same corner curve as the other Dock icons (about 22% of the side).
+// The outside stays transparent so the Dock does not paint a square.
+let radius = CGFloat(size) * 0.223
+let shape = NSBezierPath(
+    roundedRect: NSRect(x: 0, y: 0, width: size, height: size),
+    xRadius: radius,
+    yRadius: radius
+)
 NSColor(srgbRed: 0x0C / 255, green: 0x2E / 255, blue: 0x5A / 255, alpha: 1).setFill()
 shape.fill()
 
-let mark: CGFloat = 470
+let mark: CGFloat = 500
 let origin = (CGFloat(size) - mark) / 2
 let ring = NSBezierPath(
     roundedRect: NSRect(x: origin, y: origin, width: mark, height: mark),
-    xRadius: 118,
-    yRadius: 118
+    xRadius: 126,
+    yRadius: 126
 )
-ring.lineWidth = 64
+ring.lineWidth = 50
 NSColor.white.setStroke()
 ring.stroke()
 
