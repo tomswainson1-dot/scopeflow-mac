@@ -1,4 +1,4 @@
-const { app, BaseWindow, BrowserWindow, Menu, session, shell, screen, WebContentsView } = require("electron");
+const { app, BaseWindow, BrowserWindow, Menu, ipcMain, session, shell, screen, WebContentsView } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const { openKind, shouldStayInApp, startUrl } = require("./links");
@@ -29,6 +29,14 @@ function webPreferences() {
     webviewTag: false,
     backgroundThrottling: false,
     spellcheck: true,
+  };
+}
+
+function ribbonPreferences() {
+  return {
+    ...webPreferences(),
+    spellcheck: false,
+    preload: path.join(__dirname, "ribbon-preload.js"),
   };
 }
 
@@ -139,6 +147,11 @@ function attachGuards(contents) {
   });
 }
 
+function chevron(direction) {
+  const d = direction === "back" ? "M10 3 L5 8 L10 13" : "M6 3 L11 8 L6 13";
+  return `<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
 function ribbonDocument(title) {
   const text = String(title || "ScopeFlow")
     .replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[char]);
@@ -147,11 +160,57 @@ function ribbonDocument(title) {
   html, body { margin: 0; height: 100%; background: ${RIBBON}; color: #fff;
     font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     user-select: none; }
-  body { display: flex; align-items: center; box-sizing: border-box;
-    padding: 0 18px; -webkit-app-region: drag; border-bottom: 1px solid ${RIBBON_LINE}; }
-  span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-</style></head><body><span id="t">${text}</span></body></html>`;
+  body { display: flex; align-items: center; gap: 2px; box-sizing: border-box;
+    padding: 0 14px 0 2px; -webkit-app-region: drag; border-bottom: 1px solid ${RIBBON_LINE}; }
+  button { -webkit-app-region: no-drag; width: 28px; height: 28px; padding: 0; border: 0;
+    border-radius: 6px; background: transparent; color: #fff; display: grid; place-items: center; }
+  button:not(:disabled):hover { background: rgba(255,255,255,.16); }
+  button:disabled { opacity: .35; }
+  span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-left: 8px; }
+</style></head><body>
+<button id="back" type="button" title="Back" aria-label="Back" disabled>${chevron("back")}</button>
+<button id="forward" type="button" title="Forward" aria-label="Forward" disabled>${chevron("forward")}</button>
+<span id="t">${text}</span>
+<script>
+  const back = document.getElementById("back");
+  const forward = document.getElementById("forward");
+  const ribbon = window.scopeflowRibbon;
+  function paint(state) {
+    back.disabled = !state.back;
+    forward.disabled = !state.forward;
+  }
+  if (ribbon) {
+    back.addEventListener("click", () => ribbon.back());
+    forward.addEventListener("click", () => ribbon.forward());
+    ribbon.onState(paint);
+  }
+</script>
+</body></html>`;
   return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+}
+
+function windowForRibbon(contents) {
+  for (const win of windows) {
+    if (!win.isDestroyed() && win.ribbonView?.webContents === contents) return win;
+  }
+  return null;
+}
+
+function go(win, direction) {
+  if (!win || win.isDestroyed() || !win.pageView) return;
+  const history = win.pageView.webContents.navigationHistory;
+  if (direction === "back" && history.canGoBack()) history.goBack();
+  if (direction === "forward" && history.canGoForward()) history.goForward();
+}
+
+function syncNav(win) {
+  if (!win || win.isDestroyed() || !win.ribbonView || win.ribbonView.webContents.isDestroyed()) return;
+  const history = win.pageView?.webContents.navigationHistory;
+  if (!history) return;
+  win.ribbonView.webContents.send("scopeflow-nav-state", {
+    back: history.canGoBack(),
+    forward: history.canGoForward(),
+  });
 }
 
 function layoutChrome(win) {
@@ -208,9 +267,7 @@ function createWindow(url, { remember = true } = {}) {
 
   buildingChrome = true;
   const page = new WebContentsView({ webPreferences: webPreferences() });
-  const ribbon = new WebContentsView({
-    webPreferences: { ...webPreferences(), spellcheck: false },
-  });
+  const ribbon = new WebContentsView({ webPreferences: ribbonPreferences() });
   buildingChrome = false;
   page.setBackgroundColor("#ffffff");
   ribbon.setBackgroundColor(RIBBON);
@@ -228,9 +285,23 @@ function createWindow(url, { remember = true } = {}) {
   win.on("enter-full-screen", relayout);
   win.on("leave-full-screen", relayout);
   const syncTitle = () => setRibbonTitle(win, page.webContents.getTitle());
-  ribbon.webContents.once("did-finish-load", syncTitle);
+  const syncBoth = () => {
+    syncTitle();
+    syncNav(win);
+  };
+  ribbon.webContents.on("did-finish-load", syncBoth);
   page.webContents.on("page-title-updated", (_event, title) => setRibbonTitle(win, title));
-  page.webContents.on("did-finish-load", syncTitle);
+  page.webContents.on("did-navigate", () => syncNav(win));
+  page.webContents.on("did-navigate-in-page", () => syncNav(win));
+  page.webContents.on("did-finish-load", syncBoth);
+  win.on("swipe", (_event, direction) => {
+    if (direction === "right") go(win, "back");
+    if (direction === "left") go(win, "forward");
+  });
+  win.on("app-command", (_event, command) => {
+    if (command === "browser-backward") go(win, "back");
+    if (command === "browser-forward") go(win, "forward");
+  });
   page.webContents.once("ready-to-show", () => {
     if (!win.isDestroyed()) win.show();
   });
@@ -306,6 +377,10 @@ if (!gotLock) {
       callback(allowed.has(permission));
     });
 
+    ipcMain.on("scopeflow-nav", (event, direction) => {
+      if (direction !== "back" && direction !== "forward") return;
+      go(windowForRibbon(event.sender), direction);
+    });
     installMenu();
     app.on("web-contents-created", (_event, contents) => {
       if (buildingChrome || contents.__scopeflowPage) return;

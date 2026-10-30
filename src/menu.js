@@ -79,16 +79,16 @@ function menuTemplate({ app, shell, onGo, focusedContents }) {
           label: "Back",
           accelerator: "CmdOrCtrl+[",
           click: () => {
-            const web = contents();
-            if (web?.canGoBack()) web.goBack();
+            const history = contents()?.navigationHistory;
+            if (history?.canGoBack()) history.goBack();
           },
         },
         {
           label: "Forward",
           accelerator: "CmdOrCtrl+]",
           click: () => {
-            const web = contents();
-            if (web?.canGoForward()) web.goForward();
+            const history = contents()?.navigationHistory;
+            if (history?.canGoForward()) history.goForward();
           },
         },
         { type: "separator" },

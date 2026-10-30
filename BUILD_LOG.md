@@ -23,3 +23,7 @@ Tom asked for one download that runs on Intel and Apple silicon. `npm run pack` 
 ## 2026-10-30 — Push to Estimator stays in this window
 
 Tom said the button after Push to Estimator does not take him to the project. The CRM page asks for a new window, and that second window was not appearing. A suite link that asks for a new window now loads in the window he already has. Sign-in popups and links outside ScopeFlow are unchanged. `npm test` 26 passed. The arm64 app at `dist/mac-arm64/ScopeFlow.app` was updated, ad-hoc signed, and opened. The public 0.1.1 zip was not rebuilt.
+
+## 2026-10-30 — Back and Forward on the ribbon
+
+Tom said there is no way back once a PDF, or any other page, replaces the one he was on. The ribbon now has Back and Forward, to the right of the window buttons. They follow the page history, so Back from a PDF returns to the previous ScopeFlow page. A trackpad swipe and the side mouse buttons do the same. Go → Back is still Command-[. `npm test` 26 passed, and a ribbon check confirmed Back enables and sends the navigation. The arm64 app was updated and reopened. The public 0.1.1 zip was not rebuilt.
