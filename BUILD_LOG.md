@@ -19,3 +19,7 @@ The Dock icon is now a rounded squircle with the mark inset, drawn by `scripts/m
 ## 2026-10-30 — Universal build, 0.1.1
 
 Tom asked for one download that runs on Intel and Apple silicon. `npm run pack` now builds `dist/mac-universal/ScopeFlow.app`. `lipo` reports `x86_64 arm64`. A smoke launch of the Apple silicon half loaded `https://app.scopeflow.us/`. The Intel half, run with Rosetta on this Mac, loaded `https://app.scopeflow.us/login`. The zip is 213 MB, release v0.1.1. The ribbon color in this build is the ScopeFlow navy `#0C2E5A`.
+
+## 2026-10-30 — Push to Estimator stays in this window
+
+Tom said the button after Push to Estimator does not take him to the project. The CRM page asks for a new window, and that second window was not appearing. A suite link that asks for a new window now loads in the window he already has. Sign-in popups and links outside ScopeFlow are unchanged. `npm test` 26 passed. The arm64 app at `dist/mac-arm64/ScopeFlow.app` was updated, ad-hoc signed, and opened. The public 0.1.1 zip was not rebuilt.

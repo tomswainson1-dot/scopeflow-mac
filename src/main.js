@@ -117,7 +117,10 @@ function attachGuards(contents) {
         },
       };
     }
-    createWindow(url, { remember: false });
+    // A suite page asked for a new window (Push to Estimator uses window.open).
+    // Load it here instead: a second window from that call does not open, so the
+    // person never arrives. This is the same window they are already in.
+    contents.loadURL(url);
     return { action: "deny" };
   });
   contents.on("did-fail-load", (_event, code, description, _url, isMainFrame) => {
