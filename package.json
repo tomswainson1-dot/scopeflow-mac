@@ -1,0 +1,48 @@
+{
+  "name": "scopeflow-desktop",
+  "productName": "ScopeFlow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ScopeFlow for Mac. The suite website, in its own window.",
+  "author": "Total Cladding and Roofing LLC",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/links.test.js",
+    "smoke": "SCOPEFLOW_SMOKE=1 electron .",
+    "pack": "electron-builder --mac dir"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "build": {
+    "appId": "us.scopeflow.desktop",
+    "productName": "ScopeFlow",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.business",
+      "icon": "assets/icon.png",
+      "target": [
+        "dir"
+      ],
+      "identity": null,
+      "gatekeeperAssess": false,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "ScopeFlow uses the microphone for phone calls in the CRM.",
+        "NSCameraUsageDescription": "ScopeFlow uses the camera when you record a procedure or attach a photo.",
+        "NSDocumentsFolderUsageDescription": "ScopeFlow saves exported reports and files you download."
+      }
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0"
+  }
+}
