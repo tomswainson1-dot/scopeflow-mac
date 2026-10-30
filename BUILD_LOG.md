@@ -15,3 +15,7 @@ Checked: `npm test` 26 passed. A smoke launch loaded `https://app.scopeflow.us/l
 Tom asked for the Dock icon to be rounded like the other apps, for the window border to be one clean blue ribbon, and for a page on www.scopeflow.us where other people can download the app.
 
 The Dock icon is now a rounded squircle with the mark inset, drawn by `scripts/make-icon.swift`. The window title bar and the hairline around the page are both `#1A73E8`. Traffic lights sit on that ribbon. A smoke launch loaded `https://app.scopeflow.us/`. The zip for other Macs is `dist/ScopeFlow-mac.zip` (114 MB, Apple silicon). There is no Developer ID certificate on this Mac, so the page tells people how to open it the first time.
+
+## 2026-10-30 — Universal build, 0.1.1
+
+Tom asked for one download that runs on Intel and Apple silicon. `npm run pack` now builds `dist/mac-universal/ScopeFlow.app`. `lipo` reports `x86_64 arm64`. A smoke launch of the Apple silicon half loaded `https://app.scopeflow.us/`. The Intel half, run with Rosetta on this Mac, loaded `https://app.scopeflow.us/login`. The zip is 213 MB, release v0.1.1. The ribbon color in this build is the ScopeFlow navy `#0C2E5A`.

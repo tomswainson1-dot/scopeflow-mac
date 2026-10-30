@@ -16,14 +16,14 @@ npm test
 npm start
 ```
 
-A double-clickable app:
+A double-clickable app, with both Apple silicon and Intel in the one file:
 
 ```bash
 npm run pack
-open "dist/mac-arm64/ScopeFlow.app"
+open "dist/mac-universal/ScopeFlow.app"
 ```
 
-The build is ad-hoc signed for this Mac. It is not an App Store build.
+The build is ad-hoc signed for this Mac. It is not an App Store build. macOS runs the half that matches the chip.
 
 ## Point it at a local suite
 
