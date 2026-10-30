@@ -10,8 +10,8 @@ const smoke = process.env.SCOPEFLOW_SMOKE === "1";
 const windows = new Set();
 
 /** One clean blue, used for the title ribbon and the window edge together. */
-const RIBBON = "#1A73E8";
-const RIBBON_LINE = "#185ABC";
+const RIBBON = "#0C2E5A";
+const RIBBON_LINE = "#0C2E5A";
 const RIBBON_HEIGHT = 48;
 let buildingChrome = false;
 
