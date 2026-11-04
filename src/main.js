@@ -1,13 +1,17 @@
-const { app, BaseWindow, BrowserWindow, Menu, ipcMain, session, shell, screen, WebContentsView } = require("electron");
+const { app, BaseWindow, BrowserWindow, Menu, clipboard, dialog, ipcMain, session, shell, screen, WebContentsView } = require("electron");
 const fs = require("fs");
 const path = require("path");
-const { openKind, shouldStayInApp, startUrl } = require("./links");
+const { configuredSuiteUrl, openKind, shouldStayInApp, startUrl } = require("./links");
 const { menuTemplate } = require("./menu");
+const { contextMenuTemplate } = require("./context-menu");
+const { createSpelling } = require("./spelling");
 
 app.setName("ScopeFlow");
 
 const smoke = process.env.SCOPEFLOW_SMOKE === "1";
 const windows = new Set();
+/** Spelling for the whole suite (src/spelling.js), made once the app is ready. */
+let spelling = null;
 
 /** One clean blue, used for the title ribbon and the window edge together. */
 const RIBBON = "#0C2E5A";
@@ -29,6 +33,14 @@ function webPreferences() {
     webviewTag: false,
     backgroundThrottling: false,
     spellcheck: true,
+  };
+}
+
+/** The suite page itself: also runs auto-correct (src/page-preload.js). Sign-in popups and the ribbon do not. */
+function pagePreferences() {
+  return {
+    ...webPreferences(),
+    preload: path.join(__dirname, "page-preload.js"),
   };
 }
 
@@ -98,7 +110,85 @@ function offlinePage(detail) {
   return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 }
 
+/** A ScopeFlow page (any product), as opposed to a sign-in popup or a page outside the suite. */
+function isSuiteUrl(url) {
+  return /^https?:/i.test(url || "") && openKind(url) === "window";
+}
+
+function spellingFile() {
+  return path.join(app.getPath("userData"), "spelling.json");
+}
+
+function windowForContents(contents) {
+  for (const win of windows) {
+    if (!win.isDestroyed() && win.pageView?.webContents === contents) return win;
+  }
+  return BrowserWindow.fromWebContents(contents) || null;
+}
+
+/** Send each suite page the auto-correct rules that apply now; any other page gets none. */
+function broadcastSpelling() {
+  if (!spelling) return;
+  for (const win of windows) {
+    const contents = win.isDestroyed() ? null : win.pageView?.webContents;
+    if (!contents || contents.isDestroyed()) continue;
+    contents.send("scopeflow-spelling", isSuiteUrl(contents.getURL()) ? spelling.pageConfig() : { autoCorrect: false });
+  }
+}
+
+/**
+ * The right-click menu (src/context-menu.js). Electron shows none of its own, so before 0.1.3 right-click did nothing,
+ * not even on a red-underlined word.
+ */
+function attachContextMenu(contents) {
+  contents.on("context-menu", (_event, params) => {
+    const e = spelling ? spelling.effective() : { canEditWords: false, companyName: null };
+    const history = contents.navigationHistory;
+    const win = windowForContents(contents);
+    const template = contextMenuTemplate(params, {
+      platform: process.platform,
+      isSuitePage: isSuiteUrl(contents.getURL()),
+      canEditWords: e.canEditWords,
+      companyName: e.companyName,
+      history: { canGoBack: history.canGoBack(), canGoForward: history.canGoForward() },
+      actions: {
+        replaceMisspelling: (word) => contents.replaceMisspelling(word),
+        addToDictionary: (word) => spelling?.addPersonWord(word),
+        addForEveryone: (word) => {
+          spelling?.addCompanyWord(word).then((result) => {
+            if (result.ok) return;
+            const options = {
+              type: "warning",
+              message: `“${word}” was not added for everyone`,
+              detail: `${result.error} It was added to your own dictionary on this Mac instead.`,
+            };
+            (win ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options)).catch(() => {});
+          });
+        },
+        cut: () => contents.cut(),
+        copy: () => contents.copy(),
+        paste: () => contents.paste(),
+        pasteAndMatchStyle: () => contents.pasteAndMatchStyle(),
+        selectAll: () => contents.selectAll(),
+        lookUp: () => contents.showDefinitionForSelection(),
+        openLink: (url) => {
+          if (isSuiteUrl(url)) contents.loadURL(url);
+          else shell.openExternal(url).catch(() => {});
+        },
+        copyText: (text) => clipboard.writeText(text),
+        copyImageAt: (x, y) => contents.copyImageAt(x, y),
+        back: () => history.canGoBack() && history.goBack(),
+        forward: () => history.canGoForward() && history.goForward(),
+        reload: () => contents.reload(),
+      },
+    });
+    if (template.length === 0) return;
+    Menu.buildFromTemplate(template).popup(win ? { window: win } : {});
+  });
+}
+
 function attachGuards(contents) {
+  attachContextMenu(contents);
   const leave = (event, url) => {
     if (shouldStayInApp(url)) return;
     event.preventDefault();
@@ -266,7 +356,7 @@ function createWindow(url, { remember = true } = {}) {
   windows.add(win);
 
   buildingChrome = true;
-  const page = new WebContentsView({ webPreferences: webPreferences() });
+  const page = new WebContentsView({ webPreferences: pagePreferences() });
   const ribbon = new WebContentsView({ webPreferences: ribbonPreferences() });
   buildingChrome = false;
   page.setBackgroundColor("#ffffff");
@@ -294,6 +384,11 @@ function createWindow(url, { remember = true } = {}) {
   page.webContents.on("did-navigate", () => syncNav(win));
   page.webContents.on("did-navigate-in-page", () => syncNav(win));
   page.webContents.on("did-finish-load", syncBoth);
+  // The company's spelling rules may have changed (Settings → Spelling): read them again as suite pages load.
+  page.webContents.on("did-finish-load", () => {
+    if (isSuiteUrl(page.webContents.getURL())) spelling?.refresh();
+  });
+  win.on("focus", () => spelling?.refresh());
   win.on("swipe", (_event, direction) => {
     if (direction === "right") go(win, "back");
     if (direction === "left") go(win, "forward");
@@ -329,6 +424,13 @@ function installMenu() {
     app,
     shell,
     focusedContents,
+    spelling,
+    onOpenCompanySettings: () => {
+      const url = new URL("/settings/spelling", configuredSuiteUrl().origin).href;
+      const win = focusedSuiteWindow();
+      if (win) win.pageView.webContents.loadURL(url);
+      else createWindow(url);
+    },
     onGo: (url) => {
       const win = focusedSuiteWindow();
       if (win) win.pageView.webContents.loadURL(url);
@@ -377,6 +479,48 @@ if (!gotLock) {
       callback(allowed.has(permission));
     });
 
+    spelling = createSpelling({
+      dictionary: {
+        add: (word) => session.defaultSession.addWordToSpellCheckerDictionary(word),
+        remove: (word) => session.defaultSession.removeWordFromSpellCheckerDictionary(word),
+        setEnabled: (on) => session.defaultSession.setSpellCheckerEnabled(on),
+      },
+      request: async (method, url, body) => {
+        const res = await session.defaultSession.fetch(url, {
+          method,
+          credentials: "include",
+          redirect: "manual",
+          headers: body
+            ? { accept: "application/json", "content-type": "application/json", "x-scopeflow-desktop": "1" }
+            : { accept: "application/json" },
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        let json = null;
+        try {
+          json = await res.json();
+        } catch {
+          json = null;
+        }
+        return { status: res.status, json };
+      },
+      store: {
+        read: () => JSON.parse(fs.readFileSync(spellingFile(), "utf8")),
+        write: (state) => {
+          fs.mkdirSync(path.dirname(spellingFile()), { recursive: true });
+          fs.writeFileSync(spellingFile(), JSON.stringify(state));
+        },
+      },
+      suiteOrigin: configuredSuiteUrl().origin,
+      onChange: () => {
+        installMenu();
+        broadcastSpelling();
+      },
+    });
+    ipcMain.handle("scopeflow-spelling-get", (event) => {
+      const url = event.senderFrame?.url || event.sender.getURL();
+      return spelling && isSuiteUrl(url) ? spelling.pageConfig() : { autoCorrect: false };
+    });
+
     ipcMain.on("scopeflow-nav", (event, direction) => {
       if (direction !== "back" && direction !== "forward") return;
       go(windowForRibbon(event.sender), direction);
@@ -389,6 +533,7 @@ if (!gotLock) {
       }
     });
     createWindow(startUrl());
+    spelling.refresh();
   });
 }
 

@@ -1,6 +1,45 @@
 const { PRODUCTS, productUrl } = require("./links");
 
-function menuTemplate({ app, shell, onGo, focusedContents }) {
+/**
+ * Edit → Spelling (4 Nov 2026): each person's own switches. They start at the company's rules (Settings → Spelling in
+ * ScopeFlow) and, once changed here, stay as this person chose until "Use Company Settings".
+ */
+function spellingSubmenu(spelling, onOpenCompanySettings) {
+  if (!spelling) return [];
+  const e = spelling.effective();
+  return [
+    { type: "separator" },
+    {
+      label: "Spelling",
+      submenu: [
+        {
+          label: "Check Spelling While Typing",
+          type: "checkbox",
+          checked: e.checkWhileTyping,
+          click: (item) => spelling.setPersonal("checkWhileTyping", item.checked),
+        },
+        {
+          label: "Correct Spelling Automatically",
+          type: "checkbox",
+          checked: e.autoCorrect,
+          enabled: e.checkWhileTyping,
+          click: (item) => spelling.setPersonal("autoCorrect", item.checked),
+        },
+        { type: "separator" },
+        {
+          label: "Use Company Settings",
+          enabled: e.hasPersonalChoice,
+          click: () => spelling.useCompanySettings(),
+        },
+        ...(e.canEditWords && onOpenCompanySettings
+          ? [{ label: "Company Spelling Settings…", click: () => onOpenCompanySettings() }]
+          : []),
+      ],
+    },
+  ];
+}
+
+function menuTemplate({ app, shell, onGo, focusedContents, spelling, onOpenCompanySettings }) {
   const go = (product) => ({
     label: product.label,
     accelerator: product.accelerator,
@@ -47,6 +86,7 @@ function menuTemplate({ app, shell, onGo, focusedContents }) {
         { role: "pasteAndMatchStyle" },
         { role: "delete" },
         { role: "selectAll" },
+        ...spellingSubmenu(spelling, onOpenCompanySettings),
       ],
     },
     {
@@ -114,4 +154,4 @@ function menuTemplate({ app, shell, onGo, focusedContents }) {
   ];
 }
 
-module.exports = { menuTemplate };
+module.exports = { menuTemplate, spellingSubmenu };

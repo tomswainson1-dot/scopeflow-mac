@@ -38,4 +38,12 @@ Accounting then opens on `http://localhost:3700/accounting`. Set `SCOPEFLOW_ACCO
 - **Go → Applications** and the product list, with Command-1 through Command-6
 - **Go → Back / Forward**
 - **View → Reload**, zoom, full screen
-- **Edit** has the usual copy and paste, which a web page needs from the menu
+- **Edit** has the usual copy and paste, which a web page needs from the menu, and **Edit → Spelling**: Check Spelling While Typing, Correct Spelling Automatically, and Use Company Settings
+
+## Right-click and spelling (0.1.3)
+
+Right-click works everywhere in the suite. On a word underlined in red it offers the Mac's suggestions and **Add to Dictionary**; a company admin also gets **Add for Everyone at <company>**. Cut, Copy, Paste, Look Up, links and images are there too. Where a ScopeFlow page has its own right-click menu (the bill grid's rows), that menu opens instead.
+
+Auto-correct works the Mac way: finish a misspelled word with a space or punctuation and it becomes the Mac's first suggestion, if that is a near miss. Command-Z puts your word back and leaves it alone after that. It never touches company words, email and web address boxes, or boxes marked `autocorrect="off"`; by default it also leaves names, codes, units and short words alone.
+
+The company's rules and word list are set in ScopeFlow under **Settings → Spelling** (admins), and the app reads them from `/api/spelling` as you sign in and as pages load. Company words go into this app's own dictionary on each Mac, not the Mac's shared one. Each person can override the company in **Edit → Spelling**.
