@@ -108,3 +108,14 @@ Not verified:
 - A Mac account that is not an administrator: only the message is unit-tested.
 
 Not yet released.
+
+**Released (Tom: "Yes, release"), 4 Nov 2026 ~7:17 pm CST.**
+- GitHub release v0.1.4 "ScopeFlow 0.1.4", Latest, not a draft. Tag `v0.1.4` → `6367cd0`. It was published as a draft first and made Latest once both files were up:
+  - `ScopeFlow-mac.zip`: 223,763,984 bytes, sha256 `0b142379c91b24b2d7d250cd34b2215dd8e6f734306af6fa5d9a1ca4531f4948`.
+  - `ScopeFlow-mac.json`: 483 bytes.
+- GitHub's own digests match both local files.
+- `releases/latest/download/ScopeFlow-mac.json` now returns the 0.1.4 file. The zip link answers 200 from release-assets.githubusercontent.com.
+- The 0.1.4 build, reading the live feed: "check (launch): newest 0.1.4, this copy 0.1.4: up-to-date".
+- www.scopeflow.us/mac.html links v0.1.4 since Estimating `d50eebd2`: "Version 0.1.4 · Intel and Apple silicon · 224 MB · Updates itself", plus a fifth step, "Let it update itself". Pushed 7:21 pm CST with the preview checked first. Health reports `d50eebd` on app.scopeflow.us, estimating.totalcladdingandroofing.com and tcr-estimating.vercel.app. `smoke-domain.mjs` PASS on both domains; push record `d9cb5403`, smoked again (PASS); Estimating's local `main` fast-forwarded.
+
+0.1.4 is the last version anyone installs by hand. People on 0.1.0–0.1.3 (Tom's copy is 0.1.3, in Downloads) download 0.1.4 once. After that, new versions arrive in the app: publish a release with both files (README → Releasing) and Restart to Update appears.
