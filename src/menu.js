@@ -39,7 +39,22 @@ function spellingSubmenu(spelling, onOpenCompanySettings) {
   ];
 }
 
-function menuTemplate({ app, shell, onGo, focusedContents, spelling, onOpenCompanySettings }) {
+/**
+ * ScopeFlow → Check for Updates… and Settings… (4 Nov 2026). The update item is always pressable: its words say what
+ * pressing it does now (check, restart to update), and when ScopeFlow is up to date pressing it says so. Tom reads a
+ * greyed-out item as missing, so it is never disabled.
+ */
+function updateItems(update, onOpenSettings) {
+  const items = [];
+  if (update) items.push({ label: update.label, enabled: true, click: () => update.click() });
+  items.push({ type: "separator" });
+  if (onOpenSettings) {
+    items.push({ label: "Settings…", accelerator: "CmdOrCtrl+,", click: () => onOpenSettings() }, { type: "separator" });
+  }
+  return items;
+}
+
+function menuTemplate({ app, shell, onGo, focusedContents, spelling, onOpenCompanySettings, update, onOpenSettings }) {
   const go = (product) => ({
     label: product.label,
     accelerator: product.accelerator,
@@ -53,7 +68,7 @@ function menuTemplate({ app, shell, onGo, focusedContents, spelling, onOpenCompa
       label: app.name,
       submenu: [
         { role: "about" },
-        { type: "separator" },
+        ...updateItems(update, onOpenSettings),
         {
           label: "ScopeFlow on the web",
           click: () => shell.openExternal("https://www.scopeflow.us"),
@@ -154,4 +169,4 @@ function menuTemplate({ app, shell, onGo, focusedContents, spelling, onOpenCompa
   ];
 }
 
-module.exports = { menuTemplate, spellingSubmenu };
+module.exports = { menuTemplate, spellingSubmenu, updateItems };

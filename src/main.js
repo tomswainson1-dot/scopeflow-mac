@@ -1,10 +1,25 @@
-const { app, BaseWindow, BrowserWindow, Menu, clipboard, dialog, ipcMain, session, shell, screen, WebContentsView } = require("electron");
+const { app, BaseWindow, BrowserWindow, Menu, clipboard, dialog, ipcMain, powerMonitor, session, shell, screen, WebContentsView } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const { configuredSuiteUrl, openKind, shouldStayInApp, startUrl } = require("./links");
 const { menuTemplate } = require("./menu");
 const { contextMenuTemplate } = require("./context-menu");
 const { createSpelling } = require("./spelling");
+const { createSettingsStore } = require("./settings");
+const { openSettingsWindow, settingsWindow } = require("./settings-window");
+const { createUpdateMac, ownBundleId } = require("./update-mac");
+const {
+  INTERVAL_CHOICES,
+  bundleFromExecPath,
+  describe,
+  menuLabel,
+  resolveFeedUrl,
+  restartPrompt,
+  ribbonButton,
+  settingsButton,
+  sha256File,
+} = require("./update-rules");
+const { createUpdater } = require("./updater");
 
 app.setName("ScopeFlow");
 
@@ -12,6 +27,9 @@ const smoke = process.env.SCOPEFLOW_SMOKE === "1";
 const windows = new Set();
 /** Spelling for the whole suite (src/spelling.js), made once the app is ready. */
 let spelling = null;
+/** Settings → Updates and later sections (src/settings.js), and the in-app updater (src/updater.js). */
+let settingsStore = null;
+let updater = null;
 
 /** One clean blue, used for the title ribbon and the window edge together. */
 const RIBBON = "#0C2E5A";
@@ -257,22 +275,37 @@ function ribbonDocument(title) {
   button:not(:disabled):hover { background: rgba(255,255,255,.16); }
   button:disabled { opacity: .35; }
   span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-left: 8px; }
+  #update { width: auto; height: 24px; margin-left: auto; padding: 0 12px; border-radius: 12px; flex: none;
+    background: #2191FB; color: #fff; font: 600 12px/24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    white-space: nowrap; display: block; }
+  #update:hover { background: #3EA0FC; }
+  #update[hidden] { display: none; }
 </style></head><body>
 <button id="back" type="button" title="Back" aria-label="Back" disabled>${chevron("back")}</button>
 <button id="forward" type="button" title="Forward" aria-label="Forward" disabled>${chevron("forward")}</button>
 <span id="t">${text}</span>
+<button id="update" type="button" hidden></button>
 <script>
   const back = document.getElementById("back");
   const forward = document.getElementById("forward");
+  const update = document.getElementById("update");
   const ribbon = window.scopeflowRibbon;
   function paint(state) {
     back.disabled = !state.back;
     forward.disabled = !state.forward;
   }
+  function paintUpdate(info) {
+    update.hidden = !info;
+    if (!info) return;
+    update.textContent = info.label;
+    update.title = info.title;
+  }
   if (ribbon) {
     back.addEventListener("click", () => ribbon.back());
     forward.addEventListener("click", () => ribbon.forward());
+    update.addEventListener("click", () => ribbon.update());
     ribbon.onState(paint);
+    ribbon.onUpdate(paintUpdate);
   }
 </script>
 </body></html>`;
@@ -301,6 +334,12 @@ function syncNav(win) {
     back: history.canGoBack(),
     forward: history.canGoForward(),
   });
+}
+
+/** Restart to Update on the right of the ribbon when an update is waiting (src/update-rules.js ribbonButton). */
+function syncUpdateButton(win) {
+  if (!win || win.isDestroyed() || !win.ribbonView || win.ribbonView.webContents.isDestroyed()) return;
+  win.ribbonView.webContents.send("scopeflow-update-button", ribbonButton(updater?.status()));
 }
 
 function layoutChrome(win) {
@@ -380,6 +419,7 @@ function createWindow(url, { remember = true } = {}) {
     syncNav(win);
   };
   ribbon.webContents.on("did-finish-load", syncBoth);
+  ribbon.webContents.on("did-finish-load", () => syncUpdateButton(win));
   page.webContents.on("page-title-updated", (_event, title) => setRibbonTitle(win, title));
   page.webContents.on("did-navigate", () => syncNav(win));
   page.webContents.on("did-navigate-in-page", () => syncNav(win));
@@ -419,12 +459,159 @@ function focusedContents() {
   return popup && !popup.isDestroyed() ? popup.webContents : null;
 }
 
+/* ------------------------------------------------------------------------------------- Settings and updates */
+
+function settingsFile() {
+  return path.join(app.getPath("userData"), "settings.json");
+}
+
+function updateStateFile() {
+  return path.join(app.getPath("userData"), "update-state.json");
+}
+
+/** What the updater did, for support: checks, downloads, installs, and the install script's own lines. */
+function updatesLog() {
+  return path.join(app.getPath("userData"), "updates.log");
+}
+
+function logUpdate(line) {
+  try {
+    fs.mkdirSync(path.dirname(updatesLog()), { recursive: true });
+    fs.appendFileSync(updatesLog(), `${new Date().toISOString()} ${line}\n`);
+  } catch {
+    // Logging must never stop an update.
+  }
+}
+
+/** The Settings window gets the status with its words and button worked out here. */
+function updateView(status) {
+  return { ...status, text: describe(status), button: settingsButton(status) };
+}
+
+function fromSettingsWindow(event) {
+  const win = settingsWindow();
+  return Boolean(win && event.sender === win.webContents);
+}
+
+/** The settings page is not a suite page, so it gets none of the suite's link guards or right-click menu. */
+function openSettings() {
+  return openSettingsWindow({
+    create: (make) => {
+      buildingChrome = true;
+      try {
+        return make();
+      } finally {
+        buildingChrome = false;
+      }
+    },
+  });
+}
+
+let menuStatusKey = "";
+function onUpdateStatus(status) {
+  const key = `${status.state}|${status.latest}`;
+  if (key !== menuStatusKey) {
+    menuStatusKey = key;
+    installMenu();
+    for (const win of windows) syncUpdateButton(win);
+  }
+  settingsWindow()?.webContents.send("scopeflow-update-status", updateView(status));
+}
+
+function dialogParent() {
+  const win = focusedSuiteWindow();
+  return win && !win.isDestroyed() && win.isVisible() ? win : null;
+}
+
+const updateUi = {
+  /** "Update available, restart to update" → true for Restart to Update. */
+  async askRestart(status) {
+    const parent = dialogParent();
+    if (!parent || !parent.isFocused()) app.dock?.bounce("informational");
+    const options = { type: "info", noLink: true, ...restartPrompt(status) };
+    const { response } = parent ? await dialog.showMessageBox(parent, options) : await dialog.showMessageBox(options);
+    return response === 0;
+  },
+  /** The status in words, e.g. "You're up to date". */
+  async tell(status) {
+    const { title, detail } = describe(status);
+    const warn = status.state === "error" || status.state === "blocked";
+    const options = { type: warn ? "warning" : "info", message: title, detail, buttons: ["OK"], noLink: true };
+    const parent = dialogParent();
+    await (parent ? dialog.showMessageBox(parent, options) : dialog.showMessageBox(options)).catch(() => {});
+  },
+  /** Progress lives in Settings → Updates. */
+  showProgress() {
+    openSettings();
+  },
+  /** An automatic check found an update: the ribbon and menu now offer it; if ScopeFlow is in the background, one Dock bounce. */
+  nudge() {
+    if (!BaseWindow.getFocusedWindow()) app.dock?.bounce("informational");
+  },
+};
+
+function createAppUpdater() {
+  const feedUrl = resolveFeedUrl(app.commandLine.getSwitchValue("scopeflow-update-feed"));
+  const bundle = bundleFromExecPath(process.execPath);
+  let disabledReason = null;
+  if (process.platform !== "darwin") disabledReason = "In-app updates are for the Mac app.";
+  else if (!app.isPackaged || !bundle) {
+    disabledReason = "ScopeFlow is running from its source folder (npm start), so it does not update itself. Build it with npm run pack.";
+  }
+  try {
+    if (fs.statSync(updatesLog()).size > 1024 * 1024) fs.renameSync(updatesLog(), `${updatesLog()}.old`);
+  } catch {
+    // No log yet.
+  }
+  const mac = createUpdateMac({
+    feedUrl,
+    userAgent: `ScopeFlow-Mac/${app.getVersion()}`,
+    logFile: updatesLog(),
+    relaunchArgs: process.argv.slice(1),
+  });
+  return createUpdater({
+    currentVersion: app.getVersion(),
+    feedUrl,
+    disabledReason,
+    systemVersion: process.getSystemVersion(),
+    arch: process.arch,
+    ownBundleId: ownBundleId(bundle),
+    settings: () => settingsStore.get("updates"),
+    store: {
+      read: () => JSON.parse(fs.readFileSync(updateStateFile(), "utf8")),
+      write: (state) => {
+        fs.mkdirSync(path.dirname(updateStateFile()), { recursive: true });
+        fs.writeFileSync(updateStateFile(), JSON.stringify(state));
+      },
+    },
+    updatesDir: path.join(app.getPath("userData"), "Updates"),
+    locate: mac.locate,
+    fetchJson: mac.fetchJson,
+    download: mac.download,
+    hashFile: sha256File,
+    unpack: mac.unpack,
+    inspectApp: mac.inspectApp,
+    startInstall: mac.startInstall,
+    quit: () => app.quit(),
+    ui: updateUi,
+    log: logUpdate,
+    onStatus: onUpdateStatus,
+  });
+}
+
 function installMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate({
     app,
     shell,
     focusedContents,
     spelling,
+    update: {
+      label: menuLabel(updater?.status()),
+      click: () => {
+        if (updater) updater.menuClick();
+      },
+    },
+    onOpenSettings: () => openSettings(),
     onOpenCompanySettings: () => {
       const url = new URL("/settings/spelling", configuredSuiteUrl().origin).href;
       const win = focusedSuiteWindow();
@@ -525,6 +712,38 @@ if (!gotLock) {
       if (direction !== "back" && direction !== "forward") return;
       go(windowForRibbon(event.sender), direction);
     });
+
+    settingsStore = createSettingsStore({
+      read: () => JSON.parse(fs.readFileSync(settingsFile(), "utf8")),
+      write: (state) => {
+        fs.mkdirSync(path.dirname(settingsFile()), { recursive: true });
+        fs.writeFileSync(settingsFile(), JSON.stringify(state, null, 2));
+      },
+      onChange: (section) => {
+        if (section === "updates") updater?.schedule();
+      },
+    });
+    updater = createAppUpdater();
+    ipcMain.handle("scopeflow-settings-load", (event) => {
+      if (!fromSettingsWindow(event)) return null;
+      return { settings: settingsStore.get("updates"), choices: INTERVAL_CHOICES, status: updateView(updater.status()) };
+    });
+    ipcMain.handle("scopeflow-settings-save", (event, patch) => {
+      if (!fromSettingsWindow(event)) return null;
+      return settingsStore.set("updates", patch);
+    });
+    ipcMain.handle("scopeflow-update-check", (event) => {
+      if (fromSettingsWindow(event)) updater.check("window");
+    });
+    ipcMain.handle("scopeflow-update-restart", (event) => {
+      if (fromSettingsWindow(event)) updater.restartNow();
+    });
+    ipcMain.on("scopeflow-update-click", (event) => {
+      if (windowForRibbon(event.sender)) updater.menuClick();
+    });
+    // A Mac that slept past a check time checks soon after it wakes.
+    powerMonitor.on("resume", () => updater.schedule());
+
     installMenu();
     app.on("web-contents-created", (_event, contents) => {
       if (buildingChrome || contents.__scopeflowPage) return;
@@ -534,6 +753,7 @@ if (!gotLock) {
     });
     createWindow(startUrl());
     spelling.refresh();
+    if (!smoke) updater.start().catch((err) => logUpdate(`start failed: ${err && err.stack ? err.stack : err}`));
   });
 }
 
