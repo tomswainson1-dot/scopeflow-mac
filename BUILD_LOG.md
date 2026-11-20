@@ -134,3 +134,12 @@ Tom: "Also delete the Agent Desk build and local folder and from Vercel and Supa
 Seen, not changed: in smoke mode the PACKAGED app prints SMOKE_OK and then stays open (`app.quit()` does not end it), so I ended it by hand. `src/links.js` is the only source file changed, so quitting is as it was in 0.1.4.
 
 Not checked: the update arriving on a 0.1.4 copy. The updater is unchanged since 0.1.4, which was tested end to end.
+
+**Released, 20 Nov 2026, 10:15 am CST** (on Tom's instruction above: the menu entry leaves every installed copy only through a release).
+- GitHub release v0.1.5 "ScopeFlow 0.1.5", Latest, not a draft. Tag `v0.1.5` → `d2dbba2`. It was published as a draft first and made Latest once both files were up:
+  - `ScopeFlow-mac.zip`: 223,763,950 bytes, sha256 `62b3e83a5eaebd267ced18b0bf874a737f47374cab8eb13d459307bcc8a703d1`.
+  - `ScopeFlow-mac.json`: 448 bytes.
+- GitHub's own digests match both local files.
+- `releases/latest/download/ScopeFlow-mac.json` now returns the 0.1.5 file. The zip link answers 200.
+- Copies on 0.1.4 get it by themselves: Restart to Update appears. Copies on 0.1.3 or older still install 0.1.4 or newer by hand once.
+- Still to do in the Estimating repo: www.scopeflow.us/mac.html links v0.1.4; it moves to v0.1.5 with that repo's next release.
