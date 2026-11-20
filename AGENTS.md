@@ -2,7 +2,7 @@
 
 This folder is the Apple desktop application for the ScopeFlow suite. Everything for it stays here.
 
-The app is an Electron shell. The suite itself stays in its own projects (Estimating, CRM, Project Management, Roof Report, Agent Desk, Accounting). This app does not copy that code. It opens the live suite at `https://app.scopeflow.us` in its own window, the way Chrome installs a site as an app.
+The app is an Electron shell. The suite itself stays in its own projects (Estimating, CRM, Project Management, Roof Report, Accounting). This app does not copy that code. It opens the live suite at `https://app.scopeflow.us` in its own window, the way Chrome installs a site as an app.
 
 ## What is here
 

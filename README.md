@@ -4,7 +4,7 @@ The ScopeFlow suite in its own Mac application. Electron (the same Chromium engi
 
 The window has one blue ribbon across the top, and the same blue as a hairline around the page. The Dock icon is a rounded squircle. Other people download it from [www.scopeflow.us/mac.html](https://www.scopeflow.us/mac.html).
 
-After you sign in, the suite's own application tiles open Estimating, the CRM, Project Management and Roof Report. The **Go** menu also opens Agent Desk and Accounting.
+After you sign in, the suite's own application tiles open Estimating, the CRM, Project Management and Roof Report. The **Go** menu also opens Accounting.
 
 Sign-in is the same ScopeFlow account. The password form stays in this window. The session is kept for this app only, separate from Safari and Chrome. A magic link or a password-reset email still opens in your browser, because those links arrive in Mail.
 

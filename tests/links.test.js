@@ -1,6 +1,6 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
-const { accountingUrl, openKind, productUrl, shouldStayInApp, startUrl } = require("../src/links");
+const { PRODUCTS, accountingUrl, openKind, productUrl, shouldStayInApp, startUrl } = require("../src/links");
 
 const live = { SCOPEFLOW_URL: "https://app.scopeflow.us/" };
 const local = { SCOPEFLOW_URL: "http://localhost:3000/" };
@@ -21,7 +21,6 @@ describe("product addresses", () => {
     assert.equal(productUrl({ id: "crm", path: "/crm" }, live), "https://app.scopeflow.us/crm");
     assert.equal(productUrl({ id: "pm", path: "/pm" }, live), "https://app.scopeflow.us/pm");
     assert.equal(productUrl({ id: "roof", path: "/roof-report" }, live), "https://app.scopeflow.us/roof-report");
-    assert.equal(productUrl({ id: "desk", path: "/desk" }, live), "https://app.scopeflow.us/desk");
   });
 
   it("sends accounting to its own host, and to port 3700 on this Mac", () => {
@@ -36,7 +35,6 @@ describe("what stays in the window", () => {
     "https://app.scopeflow.us/crm",
     "https://app.scopeflow.us/pm",
     "https://app.scopeflow.us/roof-report",
-    "https://app.scopeflow.us/desk",
     "https://accounting.scopeflow.us/accounting",
     "https://www.scopeflow.us/user-guide.html",
     "https://abc.supabase.co/auth/v1/authorize",
@@ -79,5 +77,15 @@ describe("what stays in the window", () => {
     assert.equal(openKind("https://app.scopeflow.us/crm", live), "window");
     assert.equal(openKind("https://accounts.google.com/o/oauth2/v2.0/auth", live), "popup");
     assert.equal(openKind("about:blank", live), "popup");
+  });
+});
+
+describe("the Go menu's products", () => {
+  it("lists the suite's apps in order on Cmd+1 to Cmd+5, with no Agent Desk (deleted 20 Nov 2026)", () => {
+    assert.deepEqual(PRODUCTS.map((p) => p.id), ["home", "estimating", "crm", "pm", "roof", "accounting"]);
+    assert.deepEqual(
+      PRODUCTS.filter((p) => p.accelerator).map((p) => p.accelerator),
+      ["CmdOrCtrl+1", "CmdOrCtrl+2", "CmdOrCtrl+3", "CmdOrCtrl+4", "CmdOrCtrl+5"],
+    );
   });
 });

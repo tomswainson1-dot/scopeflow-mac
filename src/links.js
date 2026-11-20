@@ -2,8 +2,8 @@
  * Which addresses stay inside the ScopeFlow window.
  *
  * The suite is one website on app.scopeflow.us (Estimating, CRM at /crm,
- * Project Management at /pm, Roof Report at /roof-report, Agent Desk at
- * /desk). Accounting is accounting.scopeflow.us. Sign-in and connected
+ * Project Management at /pm, Roof Report at /roof-report). Accounting is
+ * accounting.scopeflow.us. Sign-in and connected
  * accounts hop out to Supabase, Google, Microsoft, Intuit and Xero and then
  * come back, so those hosts stay in the window too. Anything else opens in
  * the normal browser, the way an installed Chrome app does.
@@ -34,8 +34,7 @@ const PRODUCTS = [
   { id: "crm", label: "CRM", path: "/crm", accelerator: "CmdOrCtrl+2" },
   { id: "pm", label: "Project Management", path: "/pm", accelerator: "CmdOrCtrl+3" },
   { id: "roof", label: "Roof Report", path: "/roof-report", accelerator: "CmdOrCtrl+4" },
-  { id: "desk", label: "Agent Desk", path: "/desk", accelerator: "CmdOrCtrl+5" },
-  { id: "accounting", label: "Accounting", accelerator: "CmdOrCtrl+6" },
+  { id: "accounting", label: "Accounting", accelerator: "CmdOrCtrl+5" },
 ];
 
 function configuredSuiteUrl(env = process.env) {

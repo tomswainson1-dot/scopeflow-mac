@@ -119,3 +119,18 @@ Not yet released.
 - www.scopeflow.us/mac.html links v0.1.4 since Estimating `d50eebd2`: "Version 0.1.4 · Intel and Apple silicon · 224 MB · Updates itself", plus a fifth step, "Let it update itself". Pushed 7:21 pm CST with the preview checked first. Health reports `d50eebd` on app.scopeflow.us, estimating.totalcladdingandroofing.com and tcr-estimating.vercel.app. `smoke-domain.mjs` PASS on both domains; push record `d9cb5403`, smoked again (PASS); Estimating's local `main` fast-forwarded.
 
 0.1.4 is the last version anyone installs by hand. People on 0.1.0–0.1.3 (Tom's copy is 0.1.3, in Downloads) download 0.1.4 once. After that, new versions arrive in the app: publish a release with both files (README → Releasing) and Restart to Update appears.
+
+## 2026-11-20 — 0.1.5: Agent Desk is gone from the Go menu
+
+Tom: "Also delete the Agent Desk build and local folder and from Vercel and Supabase. Then go through and delete all buttons etc from the systems it was embedded in ... We will never need that app."
+
+**What changed.** The Go menu no longer lists Agent Desk. It opened `/desk`, which has led nowhere since 30 Oct 2026. Accounting moves from Command-6 to Command-5, so the shortcuts run 1 to 5 with no gap. `src/links.js` (the list and its comment), README and AGENTS.md no longer name it.
+
+**Checks.**
+- `npm test`: 83 passed (one new: the Go menu's list and its shortcuts; the two Agent Desk lines are gone).
+- Built `dist/mac-universal/ScopeFlow.app` 0.1.5 with `npm run release`: x86_64 + arm64, ad hoc `us.scopeflow.desktop`, signature valid. The packaged app holds no "Agent Desk".
+- Both halves launched in smoke mode with their own data folders and loaded https://app.scopeflow.us/login (arm64 in 3 s, Intel under Rosetta in 24 s).
+
+Seen, not changed: in smoke mode the PACKAGED app prints SMOKE_OK and then stays open (`app.quit()` does not end it), so I ended it by hand. `src/links.js` is the only source file changed, so quitting is as it was in 0.1.4.
+
+Not checked: the update arriving on a 0.1.4 copy. The updater is unchanged since 0.1.4, which was tested end to end.
